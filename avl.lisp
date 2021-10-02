@@ -8,58 +8,17 @@
 (defun right (node) (caddr node))
 
 (defun leaf-p (tree)
-  (and (listp tree) (null (cadr tree)) (null (caddr tree))))
-
-(defun avl-insert (data node)
-  (cond ((null node)
-	 (make-leaf data))
-	((equalp data (car node))
-	 node)
-	((string-lessp data (car node))
-	 (balance-node
-	  (make-tree (car node) (avl-insert data (cadr node)) (caddr node))))
-	((string-greaterp data (car node))
-	 (balance-node
-	  (make-tree (car node) (cadr node) (avl-insert data (caddr node)))))))
-
-(defun balanced-p (node)
-  (and (>= (balance-factor node) -1) (<= (balance-factor node) 1)))
-
-(defun balance-node (node)
-  (let ((l (left node)) (r (right node)))
-    (cond ((balanced-p node)
-	   node)
-	  ((and (> (balance-factor node) 1)
-		(> (balance-factor l) 0))
-	   (rotate-right node))
-	  ((and (< (balance-factor node) -1)
-		(< (balance-factor r) 0))
-	   (rotate-left node))
-	  ((and (> (balance-factor node) 1)
-		(< (balance-factor l) 0))
-	   (setf (cadr node) (rotate-left (cadr node)))
-	   (rotate-right node))
-	  ((and (< (balance-factor node) -1)
-		(> (balance-factor r) 0))
-	   (setf (caddr node) (rotate-right (caddr node)))
-	   (rotate-left node)))))
-  
-(defun node-p (data tree)
-  (cond ((null tree) nil)
-	((equalp data (car tree)) tree)
-	((string-lessp data (car tree)) (node-p data (cadr tree)))
-	((string-greaterp data (car tree)) (node-p data (caddr tree)))))
-
-(defun count-nodes (tree)
-  (cond ((null tree) 0)
-	(t (+ 1 (count-nodes (cadr tree)) (count-nodes (caddr tree))))))
+  (and (listp tree) (null (left tree)) (null (right tree))))
 
 (defun height (tree)
   (cond ((null tree) -1)
-	(t (+ 1 (max (height (cadr tree)) (height (caddr tree)))))))
+	(t (+ 1 (max (height (left tree)) (height (right tree)))))))
 
 (defun balance-factor (node)
   (- (height (left node)) (height (right node))))
+
+(defun balanced-p (node)
+  (and (>= (balance-factor node) -1) (<= (balance-factor node) 1)))
 
 (defun rotate-left (node)
   (make-tree
@@ -72,14 +31,64 @@
    (car (left node))
    (left (left node))
    (make-tree (car node) (right (left node)) (right node))))
+
+(defun balance-node (node)
+  (cond ((balanced-p node)
+	 node)
+	((> (balance-factor node) 1)
+	 (cond ((> (balance-factor (left node)) 0)
+		(rotate-right node))
+	       (t
+		(rotate-right
+		 (make-tree
+		  (car node)
+		  (rotate-left (left node))
+		  (right node))))))
+	(t
+	 (cond ((< (balance-factor (right node)) 0)
+		(rotate-left node))
+	       (t
+		(rotate-left
+		 (make-tree
+		  (car node)
+		  (left node)
+		  (rotate-right (right node)))))))))		
+
+(defun avl-insert (data node)
+  (cond ((null node)
+	 (make-leaf data))
+	((equalp data (car node))
+	 node)
+	((string-lessp data (car node))
+	 (balance-node
+	  (make-tree
+	   (car node)
+	   (avl-insert data (left node))
+	   (right node))))
+	((string-greaterp data (car node))
+	 (balance-node
+	  (make-tree
+	   (car node)
+	   (left node)
+	   (avl-insert data (right node)))))))
+  
+(defun node-p (data tree)
+  (cond ((null tree) nil)
+	((equalp data (car tree)) tree)
+	((string-lessp data (car tree)) (node-p data (left tree)))
+	((string-greaterp data (car tree)) (node-p data (right tree)))))
+
+(defun count-nodes (tree)
+  (cond ((null tree) 0)
+	(t (+ 1 (count-nodes (left tree)) (count-nodes (right tree))))))
   
 (defun serialize (tree)
   (cond ((null tree)
 	 (list nil))
 	(t
 	 (append (list (car tree))
-		 (serialize (cadr tree))
-		 (serialize (caddr tree))))))
+		 (serialize (left tree))
+		 (serialize (right tree))))))
 
 (defun deserialize (seq)
   (labels ((aux (x)
@@ -104,23 +113,21 @@
 			  :direction :input)
 		  (deserialize (read infile))))
 
-(defun nor (x y) (not (or x y)))
-
 (defun pre-order (tree)
   (cond ((null tree) nil)
 	(t
 	 (format t "~&~S" (car tree))
-	 (pre-order (cadr tree))
-	 (pre-order (caddr tree)))))
+	 (pre-order (left tree))
+	 (pre-order (right tree)))))
 
 (defun in-order (tree &optional port)
   (cond ((null tree) nil)
 	(t
-	 (in-order (cadr tree) port)
+	 (in-order (left tree) port)
 	 (if (null port)
 	     (format t "~&~S" (car tree))
 	   (format port "~A~%" (car tree)))
-	 (in-order (caddr tree) port))))
+	 (in-order (right tree) port))))
 
 (defun in-order-to-file (tree filename)
   (with-open-file (outfile filename
@@ -131,14 +138,14 @@
 (defun post-order (tree)
   (cond ((null tree) t)
 	(t
-	 (post-order (cadr tree))
-	 (post-order (caddr tree))
+	 (post-order (left tree))
+	 (post-order (right tree))
 	 (format t "~&~S" (car tree)))))
 
 (defun count-leaves (tree)
   (cond ((null tree) 0)
 	((leaf-p tree) 1)
-	(t (+ (count-leaves (cadr tree)) (count-leaves (caddr tree))))))
+	(t (+ (count-leaves (left tree)) (count-leaves (right tree))))))
 
 (defun list->tree (list)
   (do ((rest list (cdr rest))
