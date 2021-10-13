@@ -1,18 +1,95 @@
-(defun make-tree (data right left)
-  (list data right left))
+(defun key (node) (car node))
+(defun value (node) (cadr node))
+(defun left (node) (caddr node))
+(defun right (node) (cadddr node))
 
-(defun make-leaf (data)
-  (list data nil nil))
+(defun make-node (k v right-node left-node)
+  (list k v right-node left-node))
 
-(defun left (node) (cadr node))
-(defun right (node) (caddr node))
+(defun make-leaf (k v)
+  (list k v nil nil))
 
-(defun leaf-p (tree)
-  (and (listp tree) (null (left tree)) (null (right tree))))
+(defun leaf-p (node)
+  (and (null (left node)) (null (right node))))
 
-(defun height (tree)
-  (cond ((null tree) -1)
-	(t (+ 1 (max (height (left tree)) (height (right tree)))))))
+(defun node-p (k node)
+  (cond ((null node) nil)
+	((equalp k (key node)) node)
+	((string-lessp k (key node)) (node-p k (left node)))
+	((string-greaterp k (key node)) (node-p k (right node)))))
+
+(defun parent (k node)
+  (cond ((or (null node) (leaf-p node) (equalp k (key node)))
+	 nil)
+	((and (not (null (left node))) (equalp k (key (left node))))
+	 node)
+	((and (not (null (right node))) (equalp k (key (right node))))
+	 node)
+	((string-lessp k (key node))
+	 (parent k (left node)))
+	((string-greaterp k (key node))
+	 (parent k (right node)))))
+
+(defun min-node (node)
+  (if (null (left node))
+      node
+    (min-node (left node))))
+
+(defun max-node (node)
+  (if (null (right node))
+      node
+    (max-node (right node))))
+
+(defun min-key (node)
+  (key (min-node node)))
+
+(defun max-key (node)
+  (key (max-node node)))
+
+(defun predecessor-node (k node)
+  (labels ((aux (k predecessor node)
+		(cond ((null node)
+		       nil)
+		      ((string-lessp k (key node))
+		       (aux k predecessor (left node)))
+		      ((string-greaterp k (key node))
+		       (aux k node (right node)))
+		      (t
+		       (if (null (left node))
+			   predecessor
+			 (max-node (left node)))))))
+	  (aux k nil node)))
+
+(defun successor-node (k node)
+  (labels ((aux (k successor node)
+		(cond ((null node)
+		       nil)
+		      ((string-lessp k (key node))
+		       (aux k node (left node)))
+		      ((string-greaterp k (key node))
+		       (aux k successor (right node)))
+		      (t
+		       (if (null (right node))
+			   successor
+			 (min-node (right node)))))))
+	  (aux k nil node)))
+
+(defun predecessor-key (k node)
+  (key (predecessor-node k node)))
+
+(defun successor-key (k node)
+  (key (successor-node k node)))
+
+(defun get-value (k node)
+  (value (node-p k node)))
+
+(defun count-nodes (node)
+  (cond ((null node) 0)
+	(t (+ 1 (count-nodes (left node)) (count-nodes (right node))))))
+
+(defun height (node)
+  (cond ((null node) -1)
+	(t (+ 1 (max (height (left node)) (height (right node)))))))
 
 (defun balance-factor (node)
   (- (height (left node)) (height (right node))))
@@ -21,16 +98,18 @@
   (and (>= (balance-factor node) -1) (<= (balance-factor node) 1)))
 
 (defun rotate-left (node)
-  (make-tree
-   (car (right node))
-   (make-tree (car node) (left node) (left (right node)))
+  (make-node
+   (key (right node))
+   (value (right node))
+   (make-node (key node) (value node) (left node) (left (right node)))
    (right (right node))))
 
 (defun rotate-right (node)
-  (make-tree
-   (car (left node))
+  (make-node
+   (key (left node))
+   (value (left node))
    (left (left node))
-   (make-tree (car node) (right (left node)) (right node))))
+   (make-node (key node) (value node) (right (left node)) (right node))))
 
 (defun balance-node (node)
   (cond ((balanced-p node)
@@ -40,8 +119,9 @@
 		(rotate-right node))
 	       (t
 		(rotate-right
-		 (make-tree
-		  (car node)
+		 (make-node
+		  (key node)
+		  (value node)
 		  (rotate-left (left node))
 		  (right node))))))
 	(t
@@ -49,115 +129,177 @@
 		(rotate-left node))
 	       (t
 		(rotate-left
-		 (make-tree
-		  (car node)
+		 (make-node
+		  (key node)
+		  (value node)
 		  (left node)
-		  (rotate-right (right node)))))))))		
+		  (rotate-right (right node)))))))))
 
-(defun avl-insert (data node)
+(defun insert-node (k v node)
   (cond ((null node)
-	 (make-leaf data))
-	((equalp data (car node))
+	 (make-leaf k v))
+	((equalp k (key node))
 	 node)
-	((string-lessp data (car node))
+	((string-lessp k (key node))
 	 (balance-node
-	  (make-tree
-	   (car node)
-	   (avl-insert data (left node))
+	  (make-node
+	   (key node)
+	   (value node)
+	   (insert-node k v (left node))
 	   (right node))))
-	((string-greaterp data (car node))
+	((string-greaterp k (key node))
 	 (balance-node
-	  (make-tree
-	   (car node)
+	  (make-node
+	   (key node)
+	   (value node)
 	   (left node)
-	   (avl-insert data (right node)))))))
+	   (insert-node k v (right node)))))))
   
-(defun node-p (data tree)
-  (cond ((null tree) nil)
-	((equalp data (car tree)) tree)
-	((string-lessp data (car tree)) (node-p data (left tree)))
-	((string-greaterp data (car tree)) (node-p data (right tree)))))
+(defun remove-node (k node)
+  (cond ((null node)
+	 nil)
+	((string-lessp k (key node))
+	 (balance-node
+	  (make-node
+	   (key node)
+	   (value node)
+	   (remove-node k (left node))
+	   (right node))))
+	((string-greaterp k (key node))
+	 (balance-node
+	  (make-node
+	   (key node)
+	   (value node)
+	   (left node)
+	   (remove-node k (right node)))))
+	((null (left node))
+	 (right node))
+	((null (right node))
+	 (left node))
+	(t
+	 (let ((new-key (max-key (left node))))
+	   (balance-node
+	    (make-node
+	     new-key
+	     (get-value new-key (left node))
+	     (remove-node new-key (left node))
+	     (right node)))))))
 
-(defun count-nodes (tree)
-  (cond ((null tree) 0)
-	(t (+ 1 (count-nodes (left tree)) (count-nodes (right tree))))))
-  
-(defun serialize (tree)
-  (cond ((null tree)
+(defun defoliate (node)
+  (cond ((or (null node) (and (null (left node)) (null (right node))))
+	 nil)
+	(t
+	 (make-node
+	  (key node)
+	  (value node)
+	  (defoliate (left node))
+	  (defoliate (right node))))))
+
+(defun serialize (node)
+  (cond ((null node)
 	 (list nil))
 	(t
-	 (append (list (car tree))
-		 (serialize (left tree))
-		 (serialize (right tree))))))
+	 (cons (list (key node) (value node))
+	       (append (serialize (left node)) (serialize (right node)))))))
 
 (defun deserialize (seq)
   (labels ((aux (x)
 		(cond ((null x)
 		       nil)
 		      (t
-		       (make-tree
-			x
+		       (make-node
+			(key x)
+			(value x)
 			(aux (pop seq))
 			(aux (pop seq)))))))
 	  (aux (pop seq))))
 
-(defun serialize-to-file (tree filename)
-  (let ((tree-list (serialize tree)))
+(defun serialize-to-file (node filename)
+  (let ((node-list (serialize node)))
     (with-open-file (outfile filename
 				  :direction :output
 				  :if-does-not-exist :create)
-			 (format outfile "~S" tree-list))))
+			 (format outfile "~S" node-list))))
 
 (defun deserialize-from-file (filename)
   (with-open-file (infile filename
 			  :direction :input)
 		  (deserialize (read infile))))
 
-(defun pre-order (tree)
-  (cond ((null tree) nil)
+;;; handy functions to send to the traversal functions
+(defun display-node (node)
+  (format t "~&~A: ~A" (key node) (value node)))
+
+(defun display-key (node)
+  (format t "~&~S" (key node)))
+
+(defun display-value (node)
+  (format t "~&~S" (value node)))
+
+(defun key-and-value (node)
+  (if (null node)
+      nil
+    (list (key node) (value node))))
+
+(defun pre-order (f node)
+  (cond ((null node) 'done)
 	(t
-	 (format t "~&~S" (car tree))
-	 (pre-order (left tree))
-	 (pre-order (right tree)))))
+	 (funcall f node)
+	 (pre-order f (left node))
+	 (pre-order f (right node)))))
 
-(defun in-order (tree &optional port)
-  (cond ((null tree) nil)
+(defun in-order (f node)
+  (cond ((null node) 'done)
 	(t
-	 (in-order (left tree) port)
-	 (if (null port)
-	     (format t "~&~S" (car tree))
-	   (format port "~A~%" (car tree)))
-	 (in-order (right tree) port))))
+	 (in-order f (left node))
+	 (funcall f node)
+	 (in-order f (right node)))))
 
-(defun in-order-to-file (tree filename)
-  (with-open-file (outfile filename
-			   :direction :output
-			   :if-does-not-exist :create)
-		  (in-order tree outfile)))
-
-(defun post-order (tree)
-  (cond ((null tree) t)
+(defun post-order (f node)
+  (cond ((null node) 'done)
 	(t
-	 (post-order (left tree))
-	 (post-order (right tree))
-	 (format t "~&~S" (car tree)))))
+	 (post-order f (left node))
+	 (post-order f (right node))
+	 (funcall f node))))
 
-(defun count-leaves (tree)
-  (cond ((null tree) 0)
-	((leaf-p tree) 1)
-	(t (+ (count-leaves (left tree)) (count-leaves (right tree))))))
+(defun pre-order->list (node)
+  (cond ((null node) nil)
+	(t
+	 (cons (key-and-value node)
+	       (append (pre-order->list (left node))
+		       (pre-order->list (right node)))))))
 
-(defun list->tree (list)
-  (do ((rest list (cdr rest))
-       (bst nil (avl-insert (car rest) bst)))
+(defun in-order->list (node)
+  (cond ((null node) nil)
+	(t
+	 (append (in-order->list (left node))
+		 (list (key-and-value node))
+		 (in-order->list (right node))))))
+
+(defun post-order->list (node)
+  (cond ((null node) nil)
+	(t
+	  (append (post-order->list (left node))
+		  (post-order->list (right node))
+		  (list (key-and-value node))))))
+
+(defun count-leaves (node)
+  (cond ((null node) 0)
+	((leaf-p node) 1)
+	(t (+ (count-leaves (left node)) (count-leaves (right node))))))
+
+(defun list->bst (seq)
+  (do ((rest seq (cdr rest))
+       (bst nil (insert-node (key (car rest)) (value (car rest)) bst)))
       ((null rest) bst)))
 
-(defun text-file->tree (filename)
+(defun read-file (filename)
   (with-open-file (infile filename)
 		  (do ((symbol (read infile nil 'eof) (read infile nil 'eof))
-		       (bst nil (avl-insert symbol bst)))
-		      ((eq symbol 'eof) bst)
-		      (cond ((or (not (symbolp symbol)) (equalp symbol nil))
-			     (format t "~&~S (NOT A SYMBOL)" symbol))))))
-  
-(defun bound (n) (* 1.44 (log n 2)))
+		       (seq nil (cons symbol seq)))
+		      ((eq symbol 'eof) seq))))
+
+(defun text-file->bst (filename)
+  (list->bst (nreverse (read-file filename))))
+
+(defun height-bound (x) (* 1.44 (log x 2)))
