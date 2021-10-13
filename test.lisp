@@ -15,6 +15,8 @@
 			 (key-and-value x)
 			 (key-and-value (successor-node (key x) bst))))
    bst)
+  (format t "~&min key = ~S" (min-key bst))
+  (format t "~&max key = ~S" (max-key bst))
   (format t "~&nodes = ~d" (count-nodes bst))
   (format t "~&leaves = ~d" (count-leaves bst))
   (format t "~&height = ~d" (height bst))
