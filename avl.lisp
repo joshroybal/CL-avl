@@ -1,13 +1,23 @@
 (defun key (node) (car node))
 (defun value (node) (cadr node))
-(defun left (node) (caddr node))
-(defun right (node) (cadddr node))
+(defun ht (node) (caddr node))
+(defun left (node) (cadddr node))
+(defun right (node) (cadr (cdddr node)))
 
-(defun make-node (k v right-node left-node)
-  (list k v right-node left-node))
+(defun height (node)
+  (cond ((null node) -1)
+	(t (ht node))))
+
+(defun make-node (k v left-node right-node)
+  (list
+   k
+   v
+   (+ 1 (max (height left-node) (height right-node)))
+   left-node
+   right-node))
 
 (defun make-leaf (k v)
-  (list k v nil nil))
+  (list k v 0 nil nil))
 
 (defun leaf-p (node)
   (and (null (left node)) (null (right node))))
@@ -86,10 +96,6 @@
 (defun count-nodes (node)
   (cond ((null node) 0)
 	(t (+ 1 (count-nodes (left node)) (count-nodes (right node))))))
-
-(defun height (node)
-  (cond ((null node) -1)
-	(t (+ 1 (max (height (left node)) (height (right node)))))))
 
 (defun balance-factor (node)
   (- (height (left node)) (height (right node))))
