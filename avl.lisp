@@ -192,7 +192,7 @@
 	     (right node)))))))
 
 (defun defoliate (node)
-  (cond ((or (null node) (and (null (left node)) (null (right node))))
+  (cond ((or (null node) (leaf-p node))
 	 nil)
 	(t
 	 (make-node
@@ -223,9 +223,10 @@
 (defun serialize-to-file (node filename)
   (let ((node-list (serialize node)))
     (with-open-file (outfile filename
-				  :direction :output
-				  :if-does-not-exist :create)
-			 (format outfile "~S" node-list))))
+			     :direction :output
+			     :if-exists :overwrite
+			     :if-does-not-exist :create)
+		    (format outfile "~S" node-list))))
 
 (defun deserialize-from-file (filename)
   (with-open-file (infile filename
@@ -305,7 +306,36 @@
 		       (seq nil (cons symbol seq)))
 		      ((eq symbol 'eof) seq))))
 
-(defun text-file->bst (filename)
-  (list->bst (nreverse (read-file filename))))
+(defun bound (x) (* 1.44 (log x 2)))
 
-(defun height-bound (x) (* 1.44 (log x 2)))
+;;; some useful macros
+(defmacro bst-nullify (bst)
+  (list 'setf bst nil))
+
+(defmacro bst-defoliate (bst)
+  (list 'progn
+	(list 'setf bst (list 'defoliate bst))
+	`'done))
+
+(defmacro bst-insert (k v bst)
+  (list 'progn
+	(list 'setf bst (list 'insert-node k v bst))
+	`'|NODE INSERTED|))
+
+(defmacro bst-remove (k bst)
+  (list 'progn
+	(list 'setf bst (list 'remove-node k bst))
+	`'|NODE DELETED|))
+
+(defmacro text-file->bst (filename bst)
+  (list 'progn
+	(list 'setf bst
+	      (list 'list->bst
+		    (list 'read-file filename)))
+	`'done))
+
+(defmacro bst-deserialize (filename bst)
+  (list 'progn
+	(list 'setf bst
+	      (list 'deserialize-from-file filename))
+	`'|BST DESERIALIZED|))
